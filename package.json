@@ -1,0 +1,24 @@
+{
+  "name": "intentseal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat build",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "4.1.0",
+    "@nomicfoundation/hardhat-ethers-chai-matchers": "3.0.11",
+    "@nomicfoundation/hardhat-mocha": "3.1.0",
+    "@types/chai": "5.2.3",
+    "@types/mocha": "10.0.10",
+    "@types/node": "26.6.2",
+    "chai": "6.2.2",
+    "ethers": "6.17.0",
+    "hardhat": "3.17.0",
+    "mocha": "11.8.0",
+    "typescript": "5.9.3"
+  }
+}
+

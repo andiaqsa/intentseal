@@ -1,0 +1,14 @@
+import hardhatEthers from "@nomicfoundation/hardhat-ethers";
+import hardhatEthersChaiMatchers from "@nomicfoundation/hardhat-ethers-chai-matchers";
+import hardhatMocha from "@nomicfoundation/hardhat-mocha";
+import { defineConfig } from "hardhat/config";
+
+export default defineConfig({
+  plugins: [hardhatEthers, hardhatEthersChaiMatchers, hardhatMocha],
+  solidity: {
+    version: "0.8.20",
+    settings: {
+      evmVersion: "paris",
+    },
+  },
+});
