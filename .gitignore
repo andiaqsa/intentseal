@@ -1,5 +1,8 @@
 node_modules/
 artifacts/
 cache/
+dist/
 coverage/
+.vite/
 typechain-types/
+*.log
