@@ -94,6 +94,8 @@ function renderCreate(chainId: string = BOT_CHAIN.chainIdHex) {
 }
 
 async function completeForm(user: ReturnType<typeof userEvent.setup>) {
+  const manualButton = screen.queryByRole("button", { name: /Write manually/ });
+  if (manualButton) await user.click(manualButton);
   fireEvent.change(screen.getByLabelText("Title"), { target: { value: testIntent.title } });
   fireEvent.change(screen.getByLabelText("Goal"), { target: { value: testIntent.goal } });
   fireEvent.change(screen.getByLabelText("Criterion 1"), {

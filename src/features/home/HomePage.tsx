@@ -1,4 +1,4 @@
-import { ArrowRight, Braces, Check, Fingerprint, ShieldCheck } from "lucide-react";
+import { ArrowRight, Braces, Check, Fingerprint, ShieldCheck, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { BOT_CHAIN, contractExplorerUrl } from "../../config/network";
@@ -7,19 +7,25 @@ const steps = [
   {
     number: "01",
     title: "Define",
-    copy: "Write the goal and the measurable criteria that make success unambiguous.",
+    copy: "Describe what you intend to accomplish in your own words.",
     icon: Braces,
   },
   {
     number: "02",
-    title: "Seal",
-    copy: "Create a deterministic hash and timestamp the proof on BOT Chain.",
-    icon: Fingerprint,
+    title: "Structure",
+    copy: "AI helps turn the rough intent into clear, reviewable criteria you can edit.",
+    icon: Sparkles,
   },
   {
     number: "03",
+    title: "Seal",
+    copy: "IntentSeal hashes the version you approve and timestamps it on BOT Chain.",
+    icon: Fingerprint,
+  },
+  {
+    number: "04",
     title: "Prove",
-    copy: "Later, compare the finished outcome against what existed beforehand.",
+    copy: "Later, the outcome can be evaluated against what was sealed beforehand.",
     icon: ShieldCheck,
   },
 ];
@@ -90,9 +96,9 @@ export function HomePage() {
           <h2 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">A clean chain of evidence.</h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">The full intent stays with you. Only its cryptographic fingerprint is written on-chain.</p>
         </div>
-        <div className="mt-12 grid border-y border-white/[0.07] md:grid-cols-3">
+        <div className="mt-12 grid border-y border-white/[0.07] sm:grid-cols-2 lg:grid-cols-4">
           {steps.map(({ number, title, copy, icon: Icon }, index) => (
-            <article key={title} className={`group py-8 md:px-8 ${index > 0 ? "border-t border-white/[0.07] md:border-l md:border-t-0" : "md:pl-0"}`}>
+            <article key={title} className={`group py-8 sm:px-6 lg:px-8 ${index > 0 ? "border-t border-white/[0.07] sm:border-l sm:border-t-0" : "sm:pl-0"} ${index === 2 ? "sm:border-l-0 lg:border-l" : ""}`}>
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] text-zinc-700">{number}</span>
                 <Icon size={18} className="text-zinc-600 transition group-hover:text-emerald-400" />

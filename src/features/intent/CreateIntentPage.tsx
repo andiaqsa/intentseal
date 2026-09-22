@@ -5,12 +5,15 @@ import {
   Check,
   CheckCircle2,
   ExternalLink,
+  FilePenLine,
   Fingerprint,
   LoaderCircle,
   LockKeyhole,
   Plus,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -33,6 +36,11 @@ import { getBrowserProvider } from "../../lib/blockchain/provider";
 import { logDevelopmentError, toUserError } from "../../lib/errors";
 import { shortenAddress } from "../../lib/format";
 import { storeSealedIntent } from "../../lib/storage/intents";
+import {
+  IntentStructuringError,
+  structureIntent as requestStructuredIntent,
+} from "../../lib/ai/structureIntent";
+import { MAX_ROUGH_INTENT_LENGTH } from "../../../shared/intent-structure";
 import type { IntentInput, TransactionState } from "../../types/intent";
 
 const initialIntent: IntentInput = { title: "", goal: "", criteria: [""] };
@@ -40,6 +48,9 @@ const initialIntent: IntentInput = { title: "", goal: "", criteria: [""] };
 interface SuccessData extends IntentSealedEvent {
   transactionHash: string;
 }
+
+type CreateStage = "describe" | "form" | "review" | "success";
+type AiStructuringState = "idle" | "typing" | "structuring" | "success" | "error";
 
 const transactionLabels: Record<TransactionState, string> = {
   idle: "Ready",
@@ -53,8 +64,12 @@ const transactionLabels: Record<TransactionState, string> = {
 
 export function CreateIntentPage() {
   const wallet = useWallet();
-  const [stage, setStage] = useState<"form" | "review" | "success">("form");
+  const [stage, setStage] = useState<CreateStage>("describe");
   const [intent, setIntent] = useState<IntentInput>(initialIntent);
+  const [roughIntent, setRoughIntent] = useState("");
+  const [aiState, setAiState] = useState<AiStructuringState>("idle");
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [draftSource, setDraftSource] = useState<"ai" | "manual">("manual");
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [transactionState, setTransactionState] = useState<TransactionState>("idle");
@@ -63,13 +78,52 @@ export function CreateIntentPage() {
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
 
   const proof = useMemo(() => {
+    if (stage !== "review" && stage !== "success") return null;
     try {
       const canonicalPayload = canonicalizeIntent(intent);
       return { canonicalPayload, intentHash: hashCanonicalPayload(canonicalPayload) };
     } catch {
       return null;
     }
-  }, [intent]);
+  }, [intent, stage]);
+
+  function updateRoughIntent(value: string) {
+    setRoughIntent(value);
+    setAiError(null);
+    setAiState(value.trim() ? "typing" : "idle");
+  }
+
+  async function structureWithAi() {
+    if (aiState === "structuring") return;
+    setAiState("structuring");
+    setAiError(null);
+    try {
+      const structured = await requestStructuredIntent(roughIntent);
+      setIntent({
+        title: structured.title,
+        goal: structured.goal,
+        criteria: [...structured.criteria],
+      });
+      setDraftSource("ai");
+      setAiState("success");
+      setStage("form");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      logDevelopmentError("Intent structuring failed", error);
+      setAiState("error");
+      setAiError(
+        error instanceof IntentStructuringError
+          ? error.userMessage
+          : "AI couldn't structure this intent.",
+      );
+    }
+  }
+
+  function writeManually() {
+    setDraftSource("manual");
+    setStage("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   function updateCriterion(index: number, value: string) {
     setIntent((current) => ({
@@ -163,12 +217,16 @@ export function CreateIntentPage() {
 
   function reset() {
     setIntent(initialIntent);
+    setRoughIntent("");
+    setAiState("idle");
+    setAiError(null);
+    setDraftSource("manual");
     setConfirmed(false);
     setTransactionState("idle");
     setTransactionHash(null);
     setTransactionError(null);
     setSuccessData(null);
-    setStage("form");
+    setStage("describe");
   }
 
   return (
@@ -182,20 +240,37 @@ export function CreateIntentPage() {
           <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-500">
             {stage === "success"
               ? "Your proof is confirmed and independently readable on BOT Chain."
-              : "Define the outcome before the work begins. You will review the exact payload before signing."}
+              : "Define the outcome before the work begins. AI can help structure the draft; you approve every word."}
           </p>
         </div>
         <StageIndicator stage={stage} />
       </div>
 
+      {stage === "describe" && (
+        <DescribeIntent
+          value={roughIntent}
+          state={aiState}
+          error={aiError}
+          onChange={updateRoughIntent}
+          onStructure={() => void structureWithAi()}
+          onManual={writeManually}
+        />
+      )}
+
       {stage === "form" && (
         <IntentForm
           intent={intent}
           error={formError}
+          draftSource={draftSource}
           onChange={setIntent}
           onCriterionChange={updateCriterion}
           onCriterionRemove={removeCriterion}
           onReview={openReview}
+          onRegenerate={() => {
+            setAiError(null);
+            setAiState(roughIntent.trim() ? "typing" : "idle");
+            setStage("describe");
+          }}
         />
       )}
 
@@ -225,8 +300,111 @@ export function CreateIntentPage() {
   );
 }
 
-function StageIndicator({ stage }: { stage: "form" | "review" | "success" }) {
-  const current = stage === "form" ? 1 : stage === "review" ? 2 : 3;
+interface DescribeIntentProps {
+  value: string;
+  state: AiStructuringState;
+  error: string | null;
+  onChange: (value: string) => void;
+  onStructure: () => void;
+  onManual: () => void;
+}
+
+function DescribeIntent({
+  value,
+  state,
+  error,
+  onChange,
+  onStructure,
+  onManual,
+}: DescribeIntentProps) {
+  const structuring = state === "structuring";
+  return (
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="panel p-5 sm:p-8">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-400/[0.05] px-2.5 py-1 text-[10px] font-medium text-emerald-300">
+              <Sparkles size={11} /> AI-assisted
+            </div>
+            <h2 className="mt-5 text-xl font-medium tracking-[-0.02em] text-white">
+              Describe your intent
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+              IntentSeal can turn a rough description into a clearer draft. You remain in control
+              of the final wording.
+            </p>
+          </div>
+        </div>
+
+        <label className="sr-only" htmlFor="rough-intent">
+          What are you planning to do?
+        </label>
+        <textarea
+          id="rough-intent"
+          className="input mt-7 min-h-44 resize-y text-sm leading-6"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Add rate limiting to the login endpoint so brute-force attempts are blocked, return a useful error when the limit is exceeded, and add tests."
+          maxLength={MAX_ROUGH_INTENT_LENGTH}
+          disabled={structuring}
+          autoFocus
+        />
+        <div className="mt-2 flex justify-between text-[10px] text-zinc-700">
+          <span>Rough notes stay editable if the request fails.</span>
+          <span className="font-mono">{value.length}/{MAX_ROUGH_INTENT_LENGTH}</span>
+        </div>
+
+        {error && <InlineError message={error} />}
+
+        <div className="mt-7 flex flex-col gap-3 border-t border-white/[0.07] pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            className="button button-secondary h-10"
+            onClick={onManual}
+            disabled={structuring}
+          >
+            <FilePenLine size={14} /> Write manually
+          </button>
+          <button
+            type="button"
+            className="button button-primary h-10 px-4"
+            onClick={onStructure}
+            disabled={structuring || !value.trim()}
+          >
+            {structuring ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : state === "error" ? (
+              <RefreshCw size={14} />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            {structuring ? "Structuring intent…" : state === "error" ? "Try again" : "Structure with AI"}
+          </button>
+        </div>
+      </section>
+
+      <aside className="space-y-4">
+        <div className="panel p-5">
+          <p className="eyebrow">You stay in control</p>
+          <p className="mt-4 text-xs leading-5 text-zinc-500">
+            AI suggestions are editable. Only the exact version you approve is hashed and sealed.
+          </p>
+        </div>
+        <div className="panel p-5">
+          <LockKeyhole size={17} className="text-emerald-400" />
+          <h3 className="mt-4 text-sm font-medium text-zinc-200">No automatic signing</h3>
+          <p className="mt-2 text-xs leading-5 text-zinc-500">
+            AI cannot open MetaMask or write to BOT Chain. Sealing still requires the existing
+            review and explicit confirmation.
+          </p>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function StageIndicator({ stage }: { stage: CreateStage }) {
+  const current = stage === "describe" || stage === "form" ? 1 : stage === "review" ? 2 : 3;
   return (
     <div className="flex items-center gap-2" aria-label={`Step ${current} of 3`}>
       {[1, 2, 3].map((step) => (
@@ -244,13 +422,24 @@ function StageIndicator({ stage }: { stage: "form" | "review" | "success" }) {
 interface FormProps {
   intent: IntentInput;
   error: string | null;
+  draftSource: "ai" | "manual";
   onChange: (intent: IntentInput) => void;
   onCriterionChange: (index: number, value: string) => void;
   onCriterionRemove: (index: number) => void;
   onReview: () => void;
+  onRegenerate: () => void;
 }
 
-function IntentForm({ intent, error, onChange, onCriterionChange, onCriterionRemove, onReview }: FormProps) {
+function IntentForm({
+  intent,
+  error,
+  draftSource,
+  onChange,
+  onCriterionChange,
+  onCriterionRemove,
+  onReview,
+  onRegenerate,
+}: FormProps) {
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
       <form
@@ -260,6 +449,34 @@ function IntentForm({ intent, error, onChange, onCriterionChange, onCriterionRem
           onReview();
         }}
       >
+        <div className="mb-7 flex flex-col gap-3 border-b border-white/[0.07] pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-medium text-white">
+                {draftSource === "ai" ? "Review structured intent" : "Write intent manually"}
+              </h2>
+              {draftSource === "ai" && (
+                <span className="rounded-full border border-emerald-400/15 bg-emerald-400/[0.05] px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.1em] text-emerald-300">
+                  AI-assisted
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              {draftSource === "ai"
+                ? "Edit anything below. Your edits—not the original suggestion—become the proof."
+                : "Define the exact wording you want to review and seal."}
+            </p>
+          </div>
+          {draftSource === "ai" && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 self-start rounded-lg px-2.5 py-2 text-xs text-zinc-500 transition hover:bg-white/[0.04] hover:text-zinc-200"
+              onClick={onRegenerate}
+            >
+              <RefreshCw size={13} /> Regenerate
+            </button>
+          )}
+        </div>
         <div className="field-group">
           <label className="label" htmlFor="intent-title">Title</label>
           <p className="field-help">A short, descriptive name for this intent.</p>

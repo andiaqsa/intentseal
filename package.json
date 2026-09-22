@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.app.json && vite build",
+    "dev:server": "tsx server/dev.ts",
+    "probe:gemini": "tsx server/ai/gemini-probe.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "tsc -p tsconfig.app.json && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
     "lint": "eslint .",
     "test:frontend": "vitest run",
+    "test:server": "vitest run --config vitest.server.config.ts",
     "compile": "hardhat build",
     "test": "hardhat test"
   },
@@ -35,15 +40,20 @@
     "jsdom": "^30.1.0",
     "mocha": "11.8.0",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.70.1",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
+    "dotenv": "^18.0.2",
     "lucide-react": "^1.47.0",
+    "openai": "^7.20.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "zod": "^3.25.76"
   }
 }

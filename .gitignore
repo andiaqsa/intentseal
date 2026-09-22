@@ -6,3 +6,6 @@ coverage/
 .vite/
 typechain-types/
 *.log
+.env
+.env.*
+!.env.example
