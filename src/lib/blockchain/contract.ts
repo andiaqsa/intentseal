@@ -1,4 +1,9 @@
-import { Contract, Interface, type ContractRunner, type TransactionReceipt } from "ethers";
+import {
+  Contract,
+  Interface,
+  type ContractRunner,
+  type TransactionReceipt,
+} from "ethers";
 
 import { INTENTSEAL_CONTRACT_ADDRESS } from "../../config/network";
 import type { OnChainIntent } from "../../types/intent";
@@ -20,21 +25,36 @@ export interface OutcomeSealedEvent {
   timestamp: bigint;
 }
 
-export function getIntentSealContract(runner: ContractRunner = getReadProvider()): Contract {
-  return new Contract(INTENTSEAL_CONTRACT_ADDRESS, INTENTSEAL_ABI, runner);
+export function getIntentSealContract(
+  runner: ContractRunner = getReadProvider(),
+): Contract {
+  return new Contract(
+    INTENTSEAL_CONTRACT_ADDRESS,
+    INTENTSEAL_ABI,
+    runner,
+  );
 }
 
 export async function readIntent(
   intentId: bigint,
   runner: ContractRunner = getReadProvider(),
 ): Promise<OnChainIntent> {
-  const result = await getIntentSealContract(runner).getIntent(intentId);
+  const result = await getIntentSealContract(
+    runner,
+  ).getIntent(intentId);
+
   return parseOnChainIntentResult(result);
 }
 
-export function parseOnChainIntentResult(result: unknown): OnChainIntent {
-  if (typeof result !== "object" || result === null) throw new Error("INVALID_CONTRACT_RESULT");
+export function parseOnChainIntentResult(
+  result: unknown,
+): OnChainIntent {
+  if (typeof result !== "object" || result === null) {
+    throw new Error("INVALID_CONTRACT_RESULT");
+  }
+
   const value = result as Record<string, unknown>;
+
   if (
     typeof value.creator !== "string" ||
     typeof value.intentHash !== "string" ||
@@ -56,12 +76,20 @@ export function parseOnChainIntentResult(result: unknown): OnChainIntent {
   };
 }
 
-export function parseIntentSealed(receipt: TransactionReceipt): IntentSealedEvent {
+export function parseIntentSealed(
+  receipt: TransactionReceipt,
+): IntentSealedEvent {
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== INTENTSEAL_CONTRACT_ADDRESS.toLowerCase()) continue;
+    if (
+      log.address.toLowerCase() !==
+      INTENTSEAL_CONTRACT_ADDRESS.toLowerCase()
+    ) {
+      continue;
+    }
 
     try {
       const parsed = intentSealInterface.parseLog(log);
+
       if (parsed?.name === "IntentSealed") {
         return {
           intentId: parsed.args.intentId as bigint,
@@ -71,18 +99,27 @@ export function parseIntentSealed(receipt: TransactionReceipt): IntentSealedEven
         };
       }
     } catch {
-      // Receipts may contain unrelated logs. Only the matching event is relevant.
+      // Ignore unrelated or malformed receipt logs.
     }
   }
 
   throw new Error("INTENT_EVENT_NOT_FOUND");
 }
 
-export function parseOutcomeSealed(receipt: TransactionReceipt): OutcomeSealedEvent {
+export function parseOutcomeSealed(
+  receipt: TransactionReceipt,
+): OutcomeSealedEvent {
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== INTENTSEAL_CONTRACT_ADDRESS.toLowerCase()) continue;
+    if (
+      log.address.toLowerCase() !==
+      INTENTSEAL_CONTRACT_ADDRESS.toLowerCase()
+    ) {
+      continue;
+    }
+
     try {
       const parsed = intentSealInterface.parseLog(log);
+
       if (parsed?.name === "OutcomeSealed") {
         return {
           intentId: parsed.args.intentId as bigint,
@@ -94,5 +131,6 @@ export function parseOutcomeSealed(receipt: TransactionReceipt): OutcomeSealedEv
       // Ignore unrelated or malformed receipt logs.
     }
   }
+
   throw new Error("OUTCOME_EVENT_NOT_FOUND");
 }

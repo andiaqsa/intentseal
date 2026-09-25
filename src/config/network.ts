@@ -1,6 +1,6 @@
 import { getAddress } from "ethers";
 
-export const BOT_CHAIN = Object.freeze({
+export const BOT_CHAIN_TESTNET = Object.freeze({
   chainId: 968,
   chainIdHex: "0x3c8",
   chainName: "BOT Chain Testnet",
@@ -11,9 +11,11 @@ export const BOT_CHAIN = Object.freeze({
     symbol: "BOT",
     decimals: 18,
   },
+  contractAddress: getAddress(
+    "0x5f776464dfffbB0699ef6395f8d2b6088a617c1a".toLowerCase(),
+  ),
 });
 
-/** Launch-ready network metadata. No mainnet contract address exists in this repository. */
 export const BOT_CHAIN_MAINNET = Object.freeze({
   chainId: 677,
   chainIdHex: "0x2a5",
@@ -25,24 +27,42 @@ export const BOT_CHAIN_MAINNET = Object.freeze({
     symbol: "BOT",
     decimals: 18,
   },
-  contractAddress: null,
+  contractAddress: getAddress(
+    "0xe11b90f99876e020caa17a76f09cf29fee0f5656",
+  ),
 });
 
-export const INTENTSEAL_CONTRACT_ADDRESS = getAddress(
-  "0x5F776464dFFFBb0699eF6395f8D2B6088A617c1A",
-);
+/**
+ * Active production network.
+ *
+ * The hackathon production build targets BOT Chain Mainnet.
+ * Testnet configuration is retained for reference and development.
+ */
+export const BOT_CHAIN = BOT_CHAIN_MAINNET;
 
-export function isBotChain(chainId: bigint | number | string | null): boolean {
-  if (chainId === null) return false;
+export const INTENTSEAL_CONTRACT_ADDRESS =
+  BOT_CHAIN.contractAddress;
+
+export function isBotChain(
+  chainId: bigint | number | string | null,
+): boolean {
+  if (chainId === null) {
+    return false;
+  }
 
   try {
-    return BigInt(chainId) === BigInt(BOT_CHAIN.chainId);
+    return (
+      BigInt(chainId) ===
+      BigInt(BOT_CHAIN.chainId)
+    );
   } catch {
     return false;
   }
 }
 
-export function transactionExplorerUrl(transactionHash: string): string {
+export function transactionExplorerUrl(
+  transactionHash: string,
+): string {
   return `${BOT_CHAIN.explorerUrl}/tx/${transactionHash}`;
 }
 
