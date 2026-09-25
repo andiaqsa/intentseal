@@ -16,6 +16,8 @@ BEFORE → EVIDENCE → AFTER
 
 ---
 
+- **Live website:** https://intentseal.vercel.app/
+
 ## 30-Second Overview
 
 Most systems can show what exists now.
