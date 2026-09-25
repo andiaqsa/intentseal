@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage } from "node:http";
 
 import { loadLocalServerEnvironment } from "./environment";
-import { handleStructureIntent } from "./intent/route";
+import { handleEvidenceAnalysis } from "./evidence/route";
 
 loadLocalServerEnvironment();
 
@@ -10,7 +10,8 @@ const maxBodyBytes = 16_384;
 
 const server = createServer(async (incoming, outgoing) => {
   try {
-    if (incoming.url !== "/api/intent/structure") {
+    const route = incoming.url === "/api/evidence/analyze" ? handleEvidenceAnalysis : null;
+    if (!route) {
       outgoing.writeHead(404, { "Content-Type": "application/json" });
       outgoing.end(JSON.stringify({ error: { code: "NOT_FOUND", message: "Route not found." } }));
       return;
@@ -22,7 +23,7 @@ const server = createServer(async (incoming, outgoing) => {
       headers: incoming.headers as HeadersInit,
       body: incoming.method === "GET" || incoming.method === "HEAD" ? undefined : body.toString("utf8"),
     });
-    const response = await handleStructureIntent(request);
+    const response = await route(request);
     outgoing.writeHead(response.status, Object.fromEntries(response.headers.entries()));
     outgoing.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
@@ -40,7 +41,7 @@ const server = createServer(async (incoming, outgoing) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`IntentSeal AI server listening at http://127.0.0.1:${port}`);
+  console.log(`IntentSeal server listening at http://127.0.0.1:${port}`);
 });
 
 async function readBody(request: IncomingMessage): Promise<Buffer> {

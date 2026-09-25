@@ -4,7 +4,11 @@ import { ZeroHash } from "ethers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { formatTimestamp } from "../../lib/format";
+import { canonicalizeIntent, hashCanonicalPayload } from "../../lib/canonical/intent";
+import { hashOutcome } from "../../lib/canonical/outcome";
 import { intentStorageKey } from "../../lib/storage/intents";
+import { outcomeStorageKey } from "../../lib/storage/outcomes";
+import type { OutcomeDraft } from "../../../shared/evidence";
 import type { OnChainIntent } from "../../types/intent";
 import { VerifyPage } from "./VerifyPage";
 
@@ -70,7 +74,7 @@ describe("Verify page", () => {
 
     expect(await screen.findByText("COMPLETED")).toBeInTheDocument();
     expect(screen.getByText(OUTCOME_HASH)).toBeInTheDocument();
-    expect(screen.getByText(formatTimestamp(COMPLETED_AT))).toBeInTheDocument();
+    expect(screen.getAllByText(formatTimestamp(COMPLETED_AT)).length).toBeGreaterThan(0);
   });
 
   it.each(["", "0", "-1", "abc", "1.5"])("rejects invalid ID %j without making an RPC read", async (value) => {
@@ -116,5 +120,50 @@ describe("Verify page", () => {
     expect(screen.getByText(/local application data in this browser/i)).toBeInTheDocument();
     expect(screen.queryByText(/stored on blockchain/i)).not.toBeInTheDocument();
     expect(screen.getByText('{"schema":"intentseal.intent.v1"}')).toBeInTheDocument();
+  });
+
+  it("verifies intent and outcome hashes and displays chronology, commit, and evidence", async () => {
+    const canonicalPayload = canonicalizeIntent({
+      title: "Add API rate limiting",
+      goal: "Protect login before completing the task.",
+      criteria: ["Return HTTP 429 when exceeded"],
+    });
+    const intentHash = hashCanonicalPayload(canonicalPayload);
+    const commit = "a".repeat(40);
+    const outcomeDraft: OutcomeDraft = {
+      schema: "intentseal.outcome.v1",
+      intentId: "5",
+      source: { type: "github", repository: "demo/app", commit, commitUrl: `https://github.com/demo/app/commit/${commit}` },
+      evaluations: [{
+        criterionIndex: 0,
+        criterion: "Return HTTP 429 when exceeded",
+        status: "SATISFIED",
+        explanation: "Strong matching evidence was found.",
+        evidence: [{ path: "src/rateLimit.ts", startLine: 10, endLine: 12, excerpt: "return res.status(429)" }],
+      }],
+    };
+    const outcomeHash = hashOutcome(outcomeDraft);
+    blockchain.readIntent.mockResolvedValue({
+      ...openIntent(), intentHash, outcomeHash, completed: true, completedAt: COMPLETED_AT,
+    });
+    localStorage.setItem(intentStorageKey("5"), JSON.stringify({
+      intentId: "5", creator: ACCOUNT, canonicalPayload, intentHash,
+      transactionHash: `0x${"b".repeat(64)}`, createdAt: Number(CREATED_AT),
+    }));
+    localStorage.setItem(outcomeStorageKey("5", commit), JSON.stringify({
+      intentId: "5", repository: "demo/app", commit, outcomeDraft,
+      analyzedAt: "2026-01-01T00:00:00.000Z", evidenceFileCount: 1,
+    }));
+
+    render(<VerifyPage />);
+    await lookup("5");
+
+    expect(await screen.findByText("Proof verified")).toBeInTheDocument();
+    expect(screen.getByText("Before · T1")).toBeInTheDocument();
+    expect(screen.getByText("After · T2")).toBeInTheDocument();
+    expect(screen.getByText(commit)).toBeInTheDocument();
+    expect(screen.getByText("src/rateLimit.ts · lines 10-12")).toBeInTheDocument();
+    expect(screen.getByText("Intent hash matches BOT Chain")).toBeInTheDocument();
+    expect(screen.getByText("Outcome hash matches BOT Chain")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canonicalizeIntent, hashIntent } from "./intent";
+import { canonicalizeIntent, hashIntent, parseCanonicalIntent } from "./intent";
 
 const baseIntent = {
   title: "Add API rate limiting",
@@ -51,6 +51,14 @@ describe("canonical intent", () => {
   it("rejects blank criteria after normalization", () => {
     expect(() => hashIntent({ ...baseIntent, criteria: ["  \r\n "] })).toThrow(
       "Every criterion must contain text.",
+    );
+  });
+
+  it("parses only an exact canonical payload", () => {
+    const payload = canonicalizeIntent(baseIntent);
+    expect(parseCanonicalIntent(payload)).toEqual({ schema: "intentseal.intent.v1", ...baseIntent });
+    expect(() => parseCanonicalIntent(JSON.stringify({ ...JSON.parse(payload), extra: true }))).toThrow(
+      "not canonical",
     );
   });
 });

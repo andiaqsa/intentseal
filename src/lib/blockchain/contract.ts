@@ -14,6 +14,12 @@ export interface IntentSealedEvent {
   timestamp: bigint;
 }
 
+export interface OutcomeSealedEvent {
+  intentId: bigint;
+  outcomeHash: string;
+  timestamp: bigint;
+}
+
 export function getIntentSealContract(runner: ContractRunner = getReadProvider()): Contract {
   return new Contract(INTENTSEAL_CONTRACT_ADDRESS, INTENTSEAL_ABI, runner);
 }
@@ -70,4 +76,23 @@ export function parseIntentSealed(receipt: TransactionReceipt): IntentSealedEven
   }
 
   throw new Error("INTENT_EVENT_NOT_FOUND");
+}
+
+export function parseOutcomeSealed(receipt: TransactionReceipt): OutcomeSealedEvent {
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== INTENTSEAL_CONTRACT_ADDRESS.toLowerCase()) continue;
+    try {
+      const parsed = intentSealInterface.parseLog(log);
+      if (parsed?.name === "OutcomeSealed") {
+        return {
+          intentId: parsed.args.intentId as bigint,
+          outcomeHash: parsed.args.outcomeHash as string,
+          timestamp: parsed.args.timestamp as bigint,
+        };
+      }
+    } catch {
+      // Ignore unrelated or malformed receipt logs.
+    }
+  }
+  throw new Error("OUTCOME_EVENT_NOT_FOUND");
 }

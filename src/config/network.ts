@@ -13,6 +13,21 @@ export const BOT_CHAIN = Object.freeze({
   },
 });
 
+/** Launch-ready network metadata. No mainnet contract address exists in this repository. */
+export const BOT_CHAIN_MAINNET = Object.freeze({
+  chainId: 677,
+  chainIdHex: "0x2a5",
+  chainName: "BOT Chain Mainnet",
+  rpcUrl: "https://rpc.botchain.ai",
+  explorerUrl: "https://scan.botchain.ai",
+  nativeCurrency: {
+    name: "BOT",
+    symbol: "BOT",
+    decimals: 18,
+  },
+  contractAddress: null,
+});
+
 export const INTENTSEAL_CONTRACT_ADDRESS = getAddress(
   "0x5F776464dFFFBb0699eF6395f8D2B6088A617c1A",
 );

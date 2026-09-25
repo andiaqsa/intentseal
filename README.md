@@ -1,80 +1,123 @@
 # IntentSeal
 
-IntentSeal creates timestamped proof of an intent before its outcome exists. A user can describe an intent in rough language, optionally use AI to turn it into a clearer draft, edit every field, review the exact canonical payload, and seal only its keccak256 hash on BOT Chain Testnet.
+IntentSeal proves what was intended before the outcome existed.
 
-AI is advisory: it never hashes, signs, or submits an intent. The user controls the final wording, and the manual flow remains available when AI is unavailable or not configured.
+Seal a goal before work begins, bind the result to one exact GitHub commit, review deterministic evidence, and record the final outcome hash on BOT Chain.
 
-## Current architecture
+## Problem
+
+After a project succeeds or fails, it is easy to rewrite the original promise. Screenshots and edited documents do not prove what existed first.
+
+## Solution
+
+IntentSeal creates a verifiable `BEFORE → EVIDENCE → AFTER` record:
+
+1. Define a goal and measurable success criteria.
+2. Review deterministic canonical JSON and its keccak256 hash.
+3. Seal the intent hash on BOT Chain.
+4. Lock completed work to an exact public GitHub commit SHA.
+5. Review criterion-level evidence produced by transparent rules.
+6. Seal the reviewed outcome hash and verify the chronology publicly.
+
+## Why blockchain
+
+The contract supplies the shared timestamp, creator identity, and immutable intent/outcome hashes. A normal database administrator could rewrite those facts. BOT Chain makes the order of the two commitments independently readable.
+
+## Demo flow
+
+- Open **Create**, enter the golden rate-limit intent, review the canonical payload, connect MetaMask, and seal it.
+- Open **Evidence**, load the intent ID, enter a public GitHub repository and ref, then review the exact commit and evidence.
+- Confirm every criterion and seal the outcome with the creator wallet.
+- Open **Verify** to show the complete T1 → commit → T2 proof.
+
+No AI key or AI provider is used anywhere in this flow.
+
+## Architecture
 
 ```text
-rough intent
-  -> POST /api/intent/structure (server-side AI adapter)
-  -> editable title, goal, and criteria
-  -> canonical payload review
-  -> keccak256 hash
-  -> explicit user confirmation and MetaMask signature
-  -> IntentSeal contract on BOT Chain Testnet
+React + MetaMask
+  ├─ canonical intent → keccak256 → IntentSeal.createIntent
+  ├─ public GitHub URL → server allow-list + bounded GitHub API collection
+  ├─ deterministic evidence rules → canonical outcome → keccak256
+  ├─ IntentSeal.completeIntent → event + readback verification
+  └─ public proof → direct BOT Chain read + locally retained canonical data
 ```
 
-The browser never receives an AI credential. The production endpoint is a minimal Vercel Function in `api/intent/structure.ts`; local development uses the same route logic through a small Node server. OpenAI and Gemini are implemented behind `IntentStructuringProvider`, so frontend and application logic do not depend on the selected provider.
+Only hashes and essential metadata are stored on-chain. Canonical content remains browser-local in the current hackathon build; losing browser storage does not invalidate the on-chain hash, but the full local proof content must be exported/published separately for portable public sharing.
 
-The canonical schema remains `intentseal.intent.v1`. No AI metadata enters the canonical payload. Only the `bytes32` hash is stored on-chain; the full approved intent remains off-chain in local browser storage in this MVP.
+## Smart contract
 
-## Local development
+The frozen `IntentSeal.sol` contract supports:
 
-Requirements: Node.js with npm, a MetaMask-compatible browser, and two terminals.
+- `createIntent(bytes32 intentHash)`
+- `completeIntent(uint256 intentId, bytes32 outcomeHash)`
+- `getIntent(uint256 intentId)`
+- `verifyIntent(...)` and `verifyOutcome(...)`
 
-1. Install dependencies:
+Frontend success is shown only after the expected event is parsed and `getIntent` readback matches the locally calculated hash.
 
-   ```bash
-   npm install
-   ```
+## Evidence Engine
 
-2. Copy `.env.example` to `.env.local`, select one provider, and replace only that provider's API-key placeholder. Keep this file local and never prefix a secret with `VITE_`.
+The server accepts only public `https://github.com/{owner}/{repo}` repository URLs. It resolves a ref to a full 40-character commit SHA, applies strict tree/file/byte limits, excludes binary/generated paths, and extracts bounded snippets in deterministic order.
 
-   Gemini Developer API through Google AI Studio:
+Each criterion is matched using explainable signals: exact terms, identifiers, numeric values, HTTP statuses, rate-limit symbols, test filenames and test functions, time-window configuration, and per-IP handling. Results mean:
 
-   ```dotenv
-   AI_PROVIDER=gemini
-   GEMINI_API_KEY=your_server_side_google_ai_studio_key
-   AI_MODEL=gemini-3-flash-preview
-   AI_TIMEOUT_MS=30000
-   ```
+- `SATISFIED`: strong deterministic repository evidence was found.
+- `PARTIAL`: relevant evidence exists, but required signals are incomplete.
+- `NOT_FOUND`: no sufficient matching evidence was found.
 
-   Or OpenAI:
+These labels are evidence-coverage statements, not probabilities or claims of formal correctness.
 
-   ```dotenv
-   AI_PROVIDER=openai
-   AI_API_KEY=your_server_side_openai_key
-   AI_MODEL=gpt-4o-mini
-   AI_TIMEOUT_MS=15000
-   ```
+## Trust model
 
-   Gemini API access is configured through Google AI Studio. A Google AI subscription by itself is not an API credential. Gemini mode does not require `AI_API_KEY`, and OpenAI mode does not require `GEMINI_API_KEY`.
+The Evidence Engine proposes evidence; the user reviews it. Outcome sealing requires an explicit confirmation, the original creator wallet, BOT Chain Testnet, a confirmed `OutcomeSealed` event, and matching contract readback.
 
-3. Start the local AI API in terminal one:
+### What IntentSeal proves
 
-   ```bash
-   npm run dev:server
-   ```
+- The intent hash existed at T1.
+- The same creator later recorded an outcome hash at T2.
+- The reviewed outcome binds an exact GitHub commit and selected evidence.
+- The canonical content shown locally matches the on-chain hashes.
 
-4. Start Vite in terminal two:
+### What IntentSeal does not prove
 
-   ```bash
-   npm run dev
-   ```
+IntentSeal does not prove that software is absolutely correct. BOT Chain proves chronology and integrity; repository evidence establishes provenance for human review.
 
-5. Open the URL printed by Vite, normally `http://localhost:5173`. Vite proxies `/api` to the local server on `127.0.0.1:8787`.
+## BOT Chain deployment
 
-`AI_PROVIDER` accepts `gemini` or `openai`. `GEMINI_API_KEY` is required only for Gemini; `AI_API_KEY` is required only for OpenAI. `AI_MODEL` selects the provider model and defaults to `gemini-3-flash-preview` in Gemini mode. `AI_TIMEOUT_MS` is optional and constrained to 1–30 seconds, with a 15-second application default. The browser uses a separate 40-second infrastructure safety deadline, which must remain greater than the maximum 30-second server/provider timeout so the server remains authoritative.
+| Network | Chain ID | Contract |
+|---|---:|---|
+| BOT Chain Testnet | 968 | [`0x5F776464dFFFBb0699eF6395f8D2B6088A617c1A`](https://scan.bohr.life/address/0x5F776464dFFFBb0699eF6395f8D2B6088A617c1A) |
+| BOT Chain Mainnet | 677 | Not deployed / not configured |
 
-To use IntentSeal without AI, the API process and AI environment variables are not required. Select **Write manually** and continue through the existing title, goal, criteria, canonical review, and sealing flow.
+Historical testnet deployment evidence is in [`docs/deployment.md`](docs/deployment.md). Mainnet steps are in [`docs/MAINNET_CHECKLIST.md`](docs/MAINNET_CHECKLIST.md).
 
-## Network and contract
+## Run locally
 
-The application uses the deployed `IntentSeal` contract at `0x5F776464dFFFBb0699eF6395f8D2B6088A617c1A` on BOT Chain Testnet (chain ID `968`). Write operations are signed directly in MetaMask; no wallet private key, mnemonic, or seed phrase is used by the application.
+Requirements: Node.js 20+ and MetaMask.
 
-## Quality checks
+```bash
+npm install
+copy .env.example .env.local
+npm run dev:server
+npm run dev
+```
+
+The UI runs through Vite and the local evidence endpoint runs at `127.0.0.1:8787`. Configure the Vite dev proxy as already defined in `vite.config.ts`.
+
+## Environment variables
+
+```dotenv
+# Optional server-side token for higher public GitHub API limits
+GITHUB_TOKEN=
+
+# Optional, bounded to 5,000–60,000 ms
+EVIDENCE_TIMEOUT_MS=30000
+```
+
+No OpenAI, Gemini, Groq, OpenRouter, or other LLM credential is required. Never expose server tokens through a `VITE_` variable.
+
+## Testing
 
 ```bash
 npm run build
@@ -86,12 +129,27 @@ npm audit --omit=dev
 git diff --check
 ```
 
-- `npm run test:frontend` covers the AI/manual UI paths, canonical serialization, hash determinism, wallet behavior, and verification UI.
-- `npm run test:server` uses provider test doubles; it never makes paid AI calls.
-- `npm test` runs the existing Hardhat contract suite.
+## Security
 
-## Current scope
+- No private key or seed phrase handling.
+- GitHub token remains server-side and is optional.
+- Strict GitHub host/URL allow-list; no arbitrary server fetch target.
+- Public repositories only, with bounded requests, tree size, files, bytes, and timeouts.
+- Deterministic commit locking and canonical hashing.
+- Sanitized production errors; no stack traces or secret dumps.
+- No raw HTML injection.
 
-This phase structures drafts only. GitHub evidence analysis, automated outcome evaluation, outcome sealing, public proof pages, accounts, and a cloud database are not implemented yet.
+## Submission resources
 
-For production, add infrastructure-level rate limiting and request observability without logging intent contents or secrets. Keep provider credentials in the deployment platform's server-side secret store.
+- [60–90 second demo script](docs/DEMO_SCRIPT.md)
+- [X post draft](docs/X_POST_DRAFT.md)
+- [Submission checklist](docs/SUBMISSION_CHECKLIST.md)
+- [Golden demo repository guide](docs/GOLDEN_DEMO_REPOSITORY.md)
+
+Submission links (manual completion required):
+
+- Live website: `[ADD LIVE URL]`
+- GitHub repository: `[ADD PUBLIC REPOSITORY URL]`
+- X project account/post: `[ADD X URL]`
+
+Built on BOT Chain. Learn more at [botchain.ai](https://botchain.ai).

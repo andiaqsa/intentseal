@@ -19,25 +19,23 @@ describe("local server environment loading", () => {
     temporaryDirectories.push(directory);
     writeFileSync(
       join(directory, ".env.local"),
-      "AI_PROVIDER=local-provider\nAI_API_KEY=local-placeholder\nGEMINI_API_KEY=local-gemini-placeholder\nAI_MODEL=local-model\n",
+      "GITHUB_TOKEN=local-placeholder\nEVIDENCE_TIMEOUT_MS=25000\nLOCAL_ONLY=yes\n",
     );
     writeFileSync(
       join(directory, ".env"),
-      "AI_PROVIDER=base-provider\nAI_API_KEY=base-placeholder\nGEMINI_API_KEY=base-gemini-placeholder\nAI_MODEL=base-model\nAI_TIMEOUT_MS=9000\n",
+      "GITHUB_TOKEN=base-placeholder\nEVIDENCE_TIMEOUT_MS=9000\nBASE_ONLY=yes\n",
     );
     const environment: NodeJS.ProcessEnv = {
-      AI_PROVIDER: "process-provider",
-      GEMINI_API_KEY: "process-gemini-placeholder",
+      GITHUB_TOKEN: "process-placeholder",
     };
 
     loadLocalServerEnvironment({ cwd: directory, environment });
 
     expect(environment).toEqual({
-      AI_PROVIDER: "process-provider",
-      AI_API_KEY: "local-placeholder",
-      GEMINI_API_KEY: "process-gemini-placeholder",
-      AI_MODEL: "local-model",
-      AI_TIMEOUT_MS: "9000",
+      GITHUB_TOKEN: "process-placeholder",
+      EVIDENCE_TIMEOUT_MS: "25000",
+      LOCAL_ONLY: "yes",
+      BASE_ONLY: "yes",
     });
   });
 });

@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx server/dev.ts",
-    "probe:gemini": "tsx server/ai/gemini-probe.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "tsc -p tsconfig.app.json && vite build",
     "build:server": "tsc -p tsconfig.server.json",
@@ -47,10 +46,8 @@
     "vitest": "^5.0.1"
   },
   "dependencies": {
-    "@google/genai": "^2.24.0",
     "dotenv": "^18.0.2",
     "lucide-react": "^1.47.0",
-    "openai": "^7.20.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",

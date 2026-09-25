@@ -27,6 +27,9 @@ export function toUserError(error: unknown, context: "wallet" | "network" | "tra
   if (error instanceof Error && error.message === "INTENT_EVENT_NOT_FOUND") {
     return "The transaction confirmed, but its IntentSealed event could not be verified.";
   }
+  if (error instanceof Error && error.message === "OUTCOME_EVENT_NOT_FOUND") {
+    return "The transaction confirmed, but its OutcomeSealed event could not be verified.";
+  }
   if (code === 4001 || code === "ACTION_REJECTED" || message.includes("user rejected")) {
     return context === "network"
       ? "The network switch was cancelled in MetaMask."
@@ -36,6 +39,12 @@ export function toUserError(error: unknown, context: "wallet" | "network" | "tra
   }
   if (message.includes("insufficient funds")) {
     return "This wallet does not have enough BOT to pay the network fee.";
+  }
+  if (message.includes("notintentcreator")) {
+    return "Only the wallet that created this intent can seal its outcome.";
+  }
+  if (message.includes("intentalreadycompleted")) {
+    return "This intent already has a sealed outcome.";
   }
   if (message.includes("intentnotfound") || message.includes("missing revert data")) {
     return context === "read"
